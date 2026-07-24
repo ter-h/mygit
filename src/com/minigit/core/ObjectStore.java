@@ -6,6 +6,7 @@ import java.nio.file.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.List;
 
 
 public class ObjectStore {
@@ -66,7 +67,6 @@ public class ObjectStore {
         return hash;
     }
 
-
     /* read byte data one by one,
         determine where null character is,
         copy header bytes from 0 - nullIndex to,
@@ -100,7 +100,6 @@ public class ObjectStore {
         return new RawObject(type, content);
     }
 
-
     /* Read hash and return Raw object of type and content,
         find path using first two characters of hash,
         read all bytes, extract the content and header into raw object.
@@ -123,6 +122,56 @@ public class ObjectStore {
             this.type = type;
             this.content = content;
         }
+    }
+
+    public static class TreeEntry {
+        public final String name;
+        public final String type;
+        public final String hash;
+
+        public TreeEntry(String name, String type, String hash) {
+            this.name = name;
+            this.type = type;
+            this.hash = hash;
+        }
+
+    }
+
+    public String storeTree(List<TreeEntry> entries) throws IOException {
+        StringBuilder contentBuilder = new StringBuilder();
+        for (TreeEntry e : entries) {
+
+            contentBuilder.append(e.name)
+            .append(' ')
+            .append(e.type)
+            .append(' ')
+            .append(e.hash)
+            .append('\n');  
+        }        
+
+        byte[] content = contentBuilder.toString().getBytes(StandardCharsets.UTF_8);
+        
+        String header = "tree " + content.length + "\0";
+        byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
+
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        buffer.write(headerBytes);
+        buffer.write(content);
+
+        byte[] fullData = buffer.toByteArray();
+
+        String hash = sha1(fullData);
+
+        Path objectFile = objectsDir.resolve(hash.substring(0, 2))
+        .resolve(hash.substring(2));
+        Path parent = objectFile.getParent();
+        Files.createDirectories(parent);
+        
+        try (OutputStream out = Files.newOutputStream(objectFile)) {
+            out.write(fullData);
+        }
+
+        return hash;
     }
 
 
