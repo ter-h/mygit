@@ -36,8 +36,11 @@ public class ObjectStore {
         return sb.toString();
     }
 
-    /* Build header and combine with content, hash the combined bytes, split hash into subdir/filename,
-        create the subdirectory if missing, write the combined bytes to that file
+    /* Build header and combine with content, 
+        hash the combined bytes, 
+        split hash into subdir/filename,
+        create the subdirectory if missing, 
+        write the combined bytes to that file
     */
     public String storeBlob(byte[] bytes) throws IOException {
         String header = "blob " + bytes.length + "\0";
@@ -63,7 +66,14 @@ public class ObjectStore {
         return hash;
     }
 
-    public static RawObject rawObject(byte[] fullData) {
+
+    /* read byte data one by one,
+        determine where null character is,
+        copy header bytes from 0 - nullIndex to,
+        extract type and size,
+        content is nullIndex + 1 to end
+     */
+    public static RawObject extractRawObject(byte[] fullData) {
         int nullIndex = -1;
 
         for (int i = 0; i < fullData.length; i++) {
@@ -90,11 +100,17 @@ public class ObjectStore {
         return new RawObject(type, content);
     }
 
+
+    /* Read hash and return Raw object of type and content,
+        find path using first two characters of hash,
+        read all bytes, extract the content and header into raw object.
+    
+    */
     public RawObject readObject(String hash) throws IOException {
         Path objectFile = objectsDir.resolve(hash.substring(0, 2))
                                 .resolve(hash.substring(2));
         byte[] rawBytes = Files.readAllBytes(objectFile);
-        RawObject res = rawObject(rawBytes);
+        RawObject res = extractRawObject(rawBytes);
 
         return res;
     }
