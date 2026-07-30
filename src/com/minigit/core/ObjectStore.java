@@ -175,5 +175,44 @@ public class ObjectStore {
     }
 
 
+    public String storeCommit(String treeHash, String parentHash,  String author, String message) throws IOException {
+        StringBuilder contentBuilder = new StringBuilder();
+        contentBuilder.append("tree ")
+        .append(treeHash)
+        .append(parentHash != null ? "\nparent " + parentHash : "")
+        .append("\nauthor ")
+        .append(author)
+        .append("\ncommitter ")
+        .append(author)
+        .append("\n\n")
+        .append(message);
+
+        byte[] content = contentBuilder.toString().getBytes(StandardCharsets.UTF_8);
+
+        String header = "commit " + content.length + "\0";
+        byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
+        
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        buffer.write(headerBytes);
+        buffer.write(content);
+
+        byte[] fullData = buffer.toByteArray();
+
+        String hash = sha1(fullData);
+
+        Path objectFile = objectsDir.resolve(hash.substring(0, 2))
+        .resolve(hash.substring(2));
+        Path parent = objectFile.getParent();
+        Files.createDirectories(parent);
+        
+        try (OutputStream out = Files.newOutputStream(objectFile)) {
+            out.write(fullData);
+        }
+
+        return hash;
+
+
+    }
+
 
 }
