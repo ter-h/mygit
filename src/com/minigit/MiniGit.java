@@ -17,19 +17,19 @@ public class MiniGit {
 
             switch (command) {
                 case "init":
-                    InitCommand.execute(commandArgs);
+                    new InitCommand().execute(commandArgs);
                     break;
                 case "add":
-                    AddCommand.execute(commandArgs);
+                    new AddCommand().execute(commandArgs);
                     break;
                 case "commit":
-                    CommitCommand.execute(commandArgs);
+                    new CommitCommand().execute(commandArgs);
                     break;
                 case "log":
-                    LogCommand.execute(commandArgs);
+                    new LogCommand().execute(commandArgs);
                     break;
                 case "status":
-                    StatusCommand.execute(commandArgs);
+                    new StatusCommand().execute(commandArgs);
                     break;
                 default:
                     System.out.println("Unknown command: " + command);
