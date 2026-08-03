@@ -31,6 +31,9 @@ public class MiniGit {
                 case "status":
                     new StatusCommand().execute(commandArgs);
                     break;
+                case "config":
+                    new ConfigCommand().execute(commandArgs);
+                    break;
                 default:
                     System.out.println("Unknown command: " + command);
                     printUsage();
@@ -53,5 +56,6 @@ public class MiniGit {
         System.out.println("  minigit commit -m <message>     Create a commit");
         System.out.println("  minigit log                     Show commit history");
         System.out.println("  minigit status                  Show working directory status");
+        System.out.println("  minigit config <key> <value>    Set a config value (e.g. user.name)");
     }
 }

@@ -34,13 +34,13 @@ public class CommitCommand implements Command {
         String treeHash = repo.getObjectStore().storeTree(entries);
 
         String parentHash = repo.getCurrentCommitHash();
-        String author = "Unknown <unknown@example.com>";        // flag: update later
+
+        repo.getConfig().load();
+        String name = repo.getConfig().get("user.name");
+        String email = repo.getConfig().get("user.email");
+        String author = (name != null ? name : "Unknown") + " <" + (email != null ? email : "unknown@example.com") + ">";
 
         String commitHash = repo.getObjectStore().storeCommit(treeHash, parentHash, author, message);
         repo.updateHEAD(commitHash);
-        repo.getIndex().clear();
-        repo.getIndex().save();
-
-        
     }
 }

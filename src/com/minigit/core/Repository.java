@@ -9,12 +9,14 @@ public class Repository {
     Path gitDir;
     ObjectStore objectStore;
     Index index;
+    Config config;
 
     public Repository(Path workingDir) {
         this.workingDir = workingDir;
         this.gitDir = workingDir.resolve(".git");
         this.objectStore = new ObjectStore(gitDir);
         this.index = new Index(gitDir);
+        this.config = new Config(gitDir);
     }
     
 
@@ -52,5 +54,7 @@ public class Repository {
     public ObjectStore getObjectStore() { return objectStore; }
 
     public Path getWorkingDir() { return workingDir; }
+
+    public Config getConfig() { return config; }
 
 }
