@@ -2,9 +2,6 @@ package com.minigit.commands;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
-import java.io.File;
-import java.io.IOException;
-import java.io.*;
 
 public class InitCommand implements Command {
 
