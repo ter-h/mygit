@@ -85,6 +85,8 @@ minigit commit -m "commit message"
 
 The current branch (`main` by default) is advanced to point at the new commit. The index is **not** cleared after a commit — files stay staged/tracked across commits, same as real Git, until something else changes them.
 
+If the index doesn't differ from the current commit's tree — nothing staged, or everything staged is identical to what's already committed — `commit` refuses to create a new commit and instead prints `nothing to commit, working tree clean`, matching real Git's behavior.
+
 ### `log`
 
 Prints the commit history, walking backward from the current commit to the very first one.
@@ -113,12 +115,13 @@ Shows the state of every file in the working directory relative to what's staged
 minigit status
 ```
 
-Each file is reported as one of:
-- `untracked` — never staged, never committed
-- `unchanged` — matches what's in the last commit, not currently staged
-- `staged, unchanged` — currently staged, and matches the file on disk
-- `modified (staged)` — staged, but the file on disk has changed since
-- `modified (not staged)` — committed, but the file on disk has changed and hasn't been re-staged
+Output is grouped into up to three sections, in this order:
+
+- **Changes to be committed** — differences between the index and the last commit: `new file:`, `modified:`, or `deleted:`.
+- **Changes not staged for commit** — differences between the working directory and the index: `modified:` or `deleted:`.
+- **Untracked files** — files on disk that are in neither the index nor the last commit.
+
+If none of the three sections have anything to report, prints `nothing to commit, working tree clean`.
 
 ## Example walkthrough
 

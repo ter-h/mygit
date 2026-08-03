@@ -313,12 +313,15 @@ minigit commit -m "message"
 ```
 
 1. Loads the index.
-2. Builds a `List<TreeEntry>` from `index.getEntries().values()` — one entry per staged file, using its bare filename (`entry.path.getFileName().toString()`), type `"blob"`, and its staged hash.
-3. Stores that list as a tree (`storeTree`) → `treeHash`.
-4. Gets the parent commit hash via `repo.getCurrentCommitHash()` (naturally `null` for the first commit).
-5. Loads config, reads `user.name`/`user.email`, builds an author string (`"name <email>"`), falling back to placeholder pieces (`"Unknown"` / `"unknown@example.com"`) individually if either key was never set — this avoids a `NullPointerException` from string-concatenating a `null`.
-6. Stores the commit (`storeCommit`) → `commitHash`.
-7. Advances the branch: `repo.updateHEAD(commitHash)`.
+2. Builds a `List<TreeEntry>` from `index.getEntries().values()` — one entry per staged file, using its bare filename (`entry.path.getFileName().toString()`), type `"blob"`, and its staged hash. In the same pass, also builds a `Map<String, String>` (`staged`, filename → hash) for the no-op check below.
+3. Gets the parent commit hash via `repo.getCurrentCommitHash()` (naturally `null` for the first commit).
+4. **No-op guard:** calls a private `hasChanges(repo, parentHash, staged)` helper *before* writing anything. If `parentHash` is non-null, it reads that commit's tree the same way `StatusCommand` does (parse `tree` line out of the commit header, `readTree`) into a `committed` map, then unions the `staged` and `committed` key sets and compares hash-by-hash. Any staged file missing from `committed`, any hash mismatch, or any committed file missing from `staged` counts as a change. If nothing differs, `CommitCommand` prints `nothing to commit, working tree clean` and returns — no tree, no commit object, no `HEAD` update.
+5. Stores the tree (`storeTree`) → `treeHash`.
+6. Loads config, reads `user.name`/`user.email`, builds an author string (`"name <email>"`), falling back to placeholder pieces (`"Unknown"` / `"unknown@example.com"`) individually if either key was never set — this avoids a `NullPointerException` from string-concatenating a `null`.
+7. Stores the commit (`storeCommit`) → `commitHash`.
+8. Advances the branch: `repo.updateHEAD(commitHash)`.
+
+**Why this matters:** without the guard, running `commit` twice in a row with no new `add` in between silently created two identical commits pointing at the same tree — wasted history with no actual change behind it. Real Git refuses this case outright, so `hasChanges` reproduces that check using the same tree-parsing logic `StatusCommand` already relies on, rather than inventing a second way to detect "nothing changed."
 
 **Important:** the index is *not* cleared after a commit. An earlier version of this command did call `index.clear()`/`index.save()` here, reasoned as "nothing left to stage once it's committed" — but that reasoning conflates two different mental models of what an index is:
 
@@ -352,21 +355,18 @@ minigit status
 This is the most involved command — it compares *three* different views of "what files exist," not two:
 
 1. **Staged** — `repo.getIndex().load()` → `getEntries()`, keyed by repo-root-relative path.
-2. **Committed** — if there's a current commit, its commit object is read, the `tree` line is parsed out of its header (same header-parsing approach as `LogCommand`), and `readTree(treeHash)` gives back the list of files in the last commit. This is built into a `Map<String, String>` of `filename → hash` (keyed by bare filename, since `TreeEntry.name` never contains subdirectory paths).
-3. **Working directory** — `Files.walk(repo.getWorkingDir())`, filtered to regular files and anything not under `.git`.
+2. **Committed** — if there's a current commit, its commit object is read, the `tree` line is parsed out of its header (same header-parsing approach as `LogCommand`), and `readTree(treeHash)` gives back the list of files in the last commit. This is built into a `Map<String, String>` of `filename → hash`.
+3. **Working directory** — `Files.walk(repo.getWorkingDir())`, filtered to regular files and anything not under `.git`, hashed on the fly (via `ObjectStore.hashObject`, no write) into a `Map<String, String>` of `relativePath → hash`.
 
-For each file found while walking the working directory:
+The union of all three maps' keys (`allPaths`, a `TreeSet` for stable sorted output) is walked once, and each path is classified into up to three buckets — mirroring real `git status`'s section layout rather than one line per file:
 
-- **Relativize** its path against `workingDir` first, and look it up in the **staged** map using that relative path (matching `AddCommand`'s key format).
-  - **Found** → compare the file's current on-disk hash (via `ObjectStore.hashObject`, no write) against the staged hash: equal → `"staged, unchanged"`, different → `"modified (staged)"`.
-- **Not staged** → fall back to the **committed** map, looked up by bare filename.
-  - **Found**, hash matches current content → `"unchanged"`.
-  - **Found**, hash differs → `"modified (not staged)"`.
-  - **Not found in either** → `"untracked"`.
+- **Changes to be committed** (index vs. committed tree): staged but not committed → `new file:`; staged and committed but hashes differ → `modified:`; committed but no longer staged → `deleted:`.
+- **Changes not staged for commit** (working directory vs. index): staged and present on disk but hashes differ → `modified:`; staged but missing from disk → `deleted:`.
+- **Untracked files**: present on disk, absent from both the index and the committed tree.
 
-Staged status always takes priority over committed status — if a file is both staged and committed, its staged state is what gets reported (matching real Git: what you're about to commit next matters more than what you committed last time).
+Each non-empty section is printed under its own heading; if all three are empty, prints `nothing to commit, working tree clean` — the same message `CommitCommand`'s no-op guard uses, since both are answering variants of "is there anything to act on here."
 
-**Why reading the committed tree matters:** without it, `status` would only ever compare the index to the working directory — meaning a file you just committed (and haven't re-staged) would incorrectly show as `"untracked"`, because the index has no persistent memory of "this was committed" separate from "this is currently staged." Reading the last commit's tree gives `status` a third, independent source of truth: what's actually been saved into history.
+**Why reading the committed tree matters:** without it, `status` would only ever compare the index to the working directory — meaning a file you just committed (and haven't re-staged) would incorrectly show up as untracked or as a phantom pending change, because the index has no persistent memory of "this was committed" separate from "this is currently staged." Reading the last commit's tree gives `status` a third, independent source of truth: what's actually been saved into history.
 
 ---
 
