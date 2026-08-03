@@ -8,11 +8,13 @@ public class Repository {
     Path workingDir;
     Path gitDir;
     ObjectStore objectStore;
+    Index index;
 
     public Repository(Path workingDir) {
         this.workingDir = workingDir;
         this.gitDir = workingDir.resolve(".git");
         this.objectStore = new ObjectStore(gitDir);
+        this.index = new Index(gitDir);
     }
     
 
@@ -43,6 +45,14 @@ public class Repository {
     public void updateHEAD(String commitHash) throws IOException {
         Path refFile = getCurrentBranchRefPath();
         Files.writeString(refFile, commitHash + "\n");
+    }
+
+    public Index getIndex() {
+        return index;
+    }
+
+    public ObjectStore getObjectStore() {
+        return objectStore;
     }
 
 }
