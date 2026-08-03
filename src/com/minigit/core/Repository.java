@@ -47,12 +47,10 @@ public class Repository {
         Files.writeString(refFile, commitHash + "\n");
     }
 
-    public Index getIndex() {
-        return index;
-    }
+    public Index getIndex() { return index; }
 
-    public ObjectStore getObjectStore() {
-        return objectStore;
-    }
+    public ObjectStore getObjectStore() { return objectStore; }
+
+    public Path getWorkingDir() { return workingDir; }
 
 }
