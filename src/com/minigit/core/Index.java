@@ -45,6 +45,16 @@ public class Index {
         Files.write(indexFile, lines);
     }
 
+    public void add(Path path, String hash) {
+        long timestamp = System.currentTimeMillis();
+        IndexEntry entry = new IndexEntry(path, hash, timestamp);
+        entries.put(path.toString(), entry);
+    }
+
+    public void clear() {
+        entries.clear();
+    }
+
 
 
 
