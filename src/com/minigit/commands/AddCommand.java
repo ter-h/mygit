@@ -14,11 +14,14 @@ public class AddCommand implements Command {
         Repository repo = new Repository(base);
         repo.getIndex().load();
         for (String p : args) {
-            byte[] rawBytes = Files.readAllBytes(Path.of(p));
+            Path absPath = Path.of(p).toAbsolutePath();
+            Path relPath = repo.getWorkingDir().relativize(absPath);
+
+            byte[] rawBytes = Files.readAllBytes(absPath);
             String hash = repo.getObjectStore().storeBlob(rawBytes);
-            repo.getIndex().add(Path.of(p), hash);
+            repo.getIndex().add(relPath, hash);
         }
         repo.getIndex().save();
-        
+
     }
 }
