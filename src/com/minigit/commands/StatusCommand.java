@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 import com.minigit.core.Index.IndexEntry;
@@ -49,48 +51,76 @@ public class StatusCommand implements Command {
             }
         }
 
+        Map<String, String> working = new HashMap<>();
         try (Stream<Path> paths = Files.walk(repo.getWorkingDir())) {
-
-            paths
-                .filter(Files::isRegularFile)
-                .filter(p -> !p.toString().contains(".git"))
-                .forEach(path -> {
-                    try {
-                        Path relPath = repo.getWorkingDir().relativize(path);
-                        IndexEntry entry = staged.get(relPath.toString());
-
-                        if (entry != null) {
-                            byte[] currentBytes = Files.readAllBytes(path);
-                            String currentHash = ObjectStore.hashObject("blob", currentBytes);
-                            if (currentHash.equals(entry.hash)) {
-                                System.out.println("staged, unchanged: " + path);
-                            } else {
-                                System.out.println("modified (staged): " + path);
-                            }
-                            return;
-                        }
-
-                        String committedHash = committed.get(path.getFileName().toString());
-
-                        if (committedHash == null) {
-                            System.out.println("untracked: " + path);
-                            return;
-                        }
-
-                        byte[] currentBytes = Files.readAllBytes(path);
-                        String currentHash = ObjectStore.hashObject("blob", currentBytes);
-
-                        if (currentHash.equals(committedHash)) {
-                            System.out.println("unchanged: " + path);
-                        } else {
-                            System.out.println("modified (not staged): " + path);
-                        }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-
+            for (Path path : (Iterable<Path>) paths.filter(Files::isRegularFile)
+                    .filter(p -> !p.toString().contains(".git"))::iterator) {
+                Path relPath = repo.getWorkingDir().relativize(path);
+                byte[] bytes = Files.readAllBytes(path);
+                working.put(relPath.toString(), ObjectStore.hashObject("blob", bytes));
+            }
         }
 
+        Set<String> allPaths = new TreeSet<>();
+        allPaths.addAll(staged.keySet());
+        allPaths.addAll(committed.keySet());
+        allPaths.addAll(working.keySet());
+
+        StringBuilder toBeCommitted = new StringBuilder();
+        StringBuilder notStaged = new StringBuilder();
+        StringBuilder untracked = new StringBuilder();
+
+        for (String path : allPaths) {
+            boolean inIndex = staged.containsKey(path);
+            boolean inCommit = committed.containsKey(path);
+            boolean inWorking = working.containsKey(path);
+
+            String indexHash = inIndex ? staged.get(path).hash : null;
+            String commitFileHash = committed.get(path);
+            String workingHash = working.get(path);
+
+            // Section 1: index vs HEAD ("changes to be committed")
+            if (inIndex && !inCommit) {
+                toBeCommitted.append("\tnew file:   ").append(path).append("\n");
+            } else if (inIndex && inCommit && !indexHash.equals(commitFileHash)) {
+                toBeCommitted.append("\tmodified:   ").append(path).append("\n");
+            } else if (!inIndex && inCommit) {
+                toBeCommitted.append("\tdeleted:    ").append(path).append("\n");
+            }
+
+            // Section 2: working dir vs index ("changes not staged for commit")
+            if (inIndex && inWorking && !workingHash.equals(indexHash)) {
+                notStaged.append("\tmodified:   ").append(path).append("\n");
+            } else if (inIndex && !inWorking) {
+                notStaged.append("\tdeleted:    ").append(path).append("\n");
+            }
+
+            // Section 3: untracked (in neither index nor commit, present on disk)
+            if (!inIndex && !inCommit && inWorking) {
+                untracked.append("\t").append(path).append("\n");
+            }
+        }
+
+        if (toBeCommitted.length() > 0) {
+            System.out.println("Changes to be committed:");
+            System.out.print(toBeCommitted);
+            System.out.println();
+        }
+
+        if (notStaged.length() > 0) {
+            System.out.println("Changes not staged for commit:");
+            System.out.print(notStaged);
+            System.out.println();
+        }
+
+        if (untracked.length() > 0) {
+            System.out.println("Untracked files:");
+            System.out.print(untracked);
+            System.out.println();
+        }
+
+        if (toBeCommitted.length() == 0 && notStaged.length() == 0 && untracked.length() == 0) {
+            System.out.println("nothing to commit, working tree clean");
+        }
     }
 }
