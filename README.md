@@ -1,6 +1,6 @@
 # MiniGit
 
-A simplified, educational reimplementation of core Git plumbing in Java. MiniGit reproduces Git's internal model — content-addressed objects, a staging area, commits, branches-as-pointers — at a small, readable scale. It is not a drop-in replacement for Git and doesn't aim to be: there's no compression, no packfiles, no merging, no networking. The goal is to make Git's actual mental model touchable in a few hundred lines of Java.
+A simplified, educational reimplementation of core Git plumbing in Java. MiniGit reproduces Git's internal model - content-addressed objects, a staging area, commits, branches-as-pointers - at a small, readable scale. It is not a drop-in replacement for Git and doesn't aim to be: there's no compression, no packfiles, no merging, no networking. The goal is to make Git's actual mental model touchable in a few hundred lines of Java.
 
 For a full breakdown of how each piece works and how they fit together, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
