@@ -55,8 +55,9 @@ public class Index {
         entries.clear();
     }
 
-
-
+    public Map<String, IndexEntry> getEntries() {
+        return entries;
+    }
 
     public static class IndexEntry {
         public final Path path;
