@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -43,16 +44,22 @@ public class ObjectStore {
         create the subdirectory if missing, 
         write the combined bytes to that file
     */
-    public String storeBlob(byte[] bytes) throws IOException {
-        String header = "blob " + bytes.length + "\0";
-        byte[] headerBytes = header.getBytes(StandardCharsets.UTF_8);
+    private static byte[] buildFullData(String type, byte[] content) throws IOException {
+        String header = type + " " + content.length + "\0";
 
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        buffer.write(headerBytes);
-        buffer.write(bytes);
+        buffer.write(header.getBytes(StandardCharsets.UTF_8));
+        buffer.write(content);
 
-        byte[] fullData = buffer.toByteArray();
+        return buffer.toByteArray();
+    }
 
+    public static String hashObject(String type, byte[] content) throws IOException {
+        return sha1(buildFullData(type, content));
+    }
+
+    public String storeBlob(byte[] bytes) throws IOException {
+        byte[] fullData = buildFullData("blob", bytes);
         String hash = sha1(fullData);
 
         Path objectFile = objectsDir.resolve(hash.substring(0, 2))
@@ -62,7 +69,6 @@ public class ObjectStore {
         try (OutputStream out = Files.newOutputStream(objectFile)) {
             out.write(fullData);
         }
-
 
         return hash;
     }
@@ -172,6 +178,20 @@ public class ObjectStore {
         }
 
         return hash;
+    }
+
+    public List<TreeEntry> readTree(String treeHash) throws IOException {
+        RawObject obj = readObject(treeHash);
+        String content = new String(obj.content,StandardCharsets.UTF_8);
+        List<TreeEntry> entries = new ArrayList<>();
+
+        for (String line : content.split("\n")) {
+            if (line.isEmpty()) continue;
+            String[] parts = line.split(" ");
+            entries.add(new TreeEntry(parts[0], parts[1], parts[2]));
+        }
+
+        return entries;
     }
 
 
